@@ -1,0 +1,42 @@
+name: update data
+
+on:
+  schedule:
+    # Every 8 hours, 15 minutes after Bybit's 00:00 / 08:00 / 16:00 UTC settlements.
+    - cron: "15 0,8,16 * * *"
+  workflow_dispatch:  # also allows a manual run from the Actions tab
+
+permissions:
+  contents: write  # needed to push the commit with the new data
+
+concurrency:
+  group: update-data  # never run two updates at the same time
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      # Downloads new funding records into data/ and rebuilds docs/index.html.
+      # If Bybit blocks the runner (e.g. HTTP 403) this step fails and nothing is committed.
+      - run: python -m scripts.update
+
+      # Commit only when there are new funding records. The page always changes
+      # (generation time, random chart ids), so we look at data/ only.
+      - name: Commit and push if there is new data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data docs
+          if git diff --staged --quiet -- data; then
+            echo "No new funding records: nothing to commit."
+          else
+            git commit -m "Update funding data $(date -u +'%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
