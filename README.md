@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/lucaaulari-commits/crypto-derivatives-monitor/actions/workflows/tests.yml/badge.svg)](https://github.com/lucaaulari-commits/crypto-derivatives-monitor/actions/workflows/tests.yml)
 
-A static web page with the full funding rate history of Bybit USDT perpetuals **BTCUSDT** and **ETHUSDT**: funding per settlement, annualized funding (7-day and 30-day moving averages) and cumulative funding. Data is refreshed every 8 hours by GitHub Actions.
+A static web page with the full funding rate history of Bybit USDT perpetuals **BTCUSDT** and **ETHUSDT**: funding per settlement, annualized funding (7-day and 30-day moving averages) and cumulative funding. The date of the latest record is shown at the top of the page.
 
 **Live demo:** https://lucaaulari-commits.github.io/crypto-derivatives-monitor/
 
@@ -27,7 +27,12 @@ The last command downloads any new funding records into `data/` and rebuilds `do
 | `src/metrics.py` | Funding interval, annualized rate, moving averages, cumulative funding |
 | `src/build_site.py` | Writes `docs/index.html` with Plotly charts (served by GitHub Pages) |
 | `tests/test_metrics.py` | pytest tests on small hand-made data |
-| `.github/workflows/` | `tests.yml` runs pytest on every push; `update.yml` updates data every 8 hours |
+| `scripts/update_and_push.sh` | Runs the update locally and commits/pushes only if there are new records |
+| `.github/workflows/` | `tests.yml` runs pytest on every push; `update.yml` is the same update on GitHub, manual only (see below) |
+
+### Why the data is updated from a local machine
+
+Bybit answers `403 Forbidden` to GitHub-hosted runners (geo-restriction on their cloud IPs), so the scheduled GitHub Actions update cannot reach the API. The data is therefore refreshed by running `./scripts/update_and_push.sh` from a machine where the API is reachable. `update.yml` is kept as a manual workflow to re-test this.
 
 ## Methodology
 
@@ -44,7 +49,7 @@ All rates are decimals in the code (0.0001 = 0.01%). Positive funding: longs pay
 - Data is used as returned by Bybit's API and not cross-checked with other sources. History starts 2020-03-25 (BTCUSDT) and 2020-10-21 (ETHUSDT).
 - The interval is inferred from consecutive records: if a record were missing, the interval for that point would look doubled and its annualized rate halved.
 - Annualized and cumulative figures ignore compounding, price changes, fees and the position's actual notional at each settlement.
-- Updates can lag: GitHub may delay scheduled workflows, and Bybit may block requests from GitHub's runners (some regions are geo-restricted), in which case the update job fails and the page keeps the last data.
+- Updates are not automatic (see above): the page can be behind the live market; check "Data up to" at the top of the page.
 - The page loads plotly.js from its CDN.
 
 ## Disclaimer

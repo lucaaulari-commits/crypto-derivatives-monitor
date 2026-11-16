@@ -1,10 +1,13 @@
 name: update data
 
+# Manual only. Bybit answers HTTP 403 to GitHub-hosted runners (geo-restriction,
+# verified on 2026-11-16), so the data is updated from a local machine with
+# scripts/update_and_push.sh. To retry from GitHub: Actions tab -> Run workflow.
+# If Bybit ever stops blocking runners, add back a schedule, e.g.:
+#   schedule:
+#     - cron: "15 0,8,16 * * *"
 on:
-  schedule:
-    # Every 8 hours, 15 minutes after Bybit's 00:00 / 08:00 / 16:00 UTC settlements.
-    - cron: "15 0,8,16 * * *"
-  workflow_dispatch:  # also allows a manual run from the Actions tab
+  workflow_dispatch:
 
 permissions:
   contents: write  # needed to push the commit with the new data
