@@ -75,6 +75,22 @@ def build_figures(metrics_by_symbol):
     return [funding, annualized, cumulative]
 
 
+# One short "how to read it" caption per chart, in the same order as build_figures().
+CAPTIONS = [
+    "Each point is one funding payment (Bybit currently settles every 8 hours). "
+    "Above 0%: longs pay shorts, a sign of crowded leveraged longs. "
+    "Below 0%: shorts pay longs. Large spikes mark extreme positioning, as in the 2021 bull market.",
+
+    "The same rate expressed per year, so it can be compared with an interest rate. "
+    "Roughly what a short perpetual hedged with spot (cash-and-carry) would earn per year, before fees, "
+    "if funding stayed at that level. Thin line: 7-day average, reacts quickly. Thick line: 30-day average, shows the trend.",
+
+    "Total funding a long would have paid (and a short received) since the first record, "
+    "as % of a constant position size. A steep slope means an expensive period to hold longs, "
+    "a flat line means funding near zero, a falling line means shorts were paying.",
+]
+
+
 PAGE = Template("""<!doctype html>
 <html lang="en">
 <head>
@@ -86,6 +102,7 @@ PAGE = Template("""<!doctype html>
   h1 { margin-bottom: 4px; }
   .meta { color: #666; font-size: 14px; margin-top: 0; }
   .chart { margin: 24px 0; }
+  .caption { color: #555; font-size: 14px; margin: 0 0 0 60px; max-width: 900px; }
   code { background: #f3f3f3; padding: 1px 4px; border-radius: 3px; }
   footer { color: #666; font-size: 13px; border-top: 1px solid #ddd; margin-top: 32px; padding-top: 12px; }
   .live { border: 1px solid #ddd; border-radius: 6px; padding: 4px 16px 8px; margin-top: 16px; }
@@ -106,6 +123,7 @@ Charts use stored data up to: <b>$last_record UTC</b> &middot; Page generated: $
     <tbody id="live-rows"></tbody>
   </table>
   <p class="meta" id="live-note"></p>
+  <p class="meta">The funding rate is fixed once per settlement, so this value only changes after the next settlement, not minute by minute.</p>
 </div>
 
 $charts
@@ -185,10 +203,10 @@ def build_page(metrics_by_symbol):
 
     # The first chart loads plotly.js from the CDN; the others reuse it.
     charts_html = []
-    for i, fig in enumerate(figures):
+    for i, (fig, caption) in enumerate(zip(figures, CAPTIONS)):
         include_js = "cdn" if i == 0 else False
         chart = fig.to_html(full_html=False, include_plotlyjs=include_js)
-        charts_html.append(f'<div class="chart">{chart}</div>')
+        charts_html.append(f'<div class="chart">{chart}<p class="caption">{caption}</p></div>')
 
     last_record = max(df["time"].max() for df in metrics_by_symbol.values())
     return PAGE.substitute(
