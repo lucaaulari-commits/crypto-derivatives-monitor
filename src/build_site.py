@@ -4,6 +4,7 @@ Reads every data/funding_<SYMBOL>.csv written by scripts/update.py.
 Run from the repository root:  python -m src.build_site
 """
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
@@ -87,12 +88,25 @@ PAGE = Template("""<!doctype html>
   .chart { margin: 24px 0; }
   code { background: #f3f3f3; padding: 1px 4px; border-radius: 3px; }
   footer { color: #666; font-size: 13px; border-top: 1px solid #ddd; margin-top: 32px; padding-top: 12px; }
+  .live { border: 1px solid #ddd; border-radius: 6px; padding: 4px 16px 8px; margin-top: 16px; }
+  .live table { border-collapse: collapse; }
+  .live th, .live td { text-align: right; padding: 4px 12px; }
+  .live th:first-child, .live td:first-child { text-align: left; padding-left: 0; }
 </style>
 </head>
 <body>
 <h1>Crypto Derivatives Monitor</h1>
 <p class="meta">Bybit USDT perpetuals ($symbols) &middot; funding rate history<br>
-Data up to: <b>$last_record UTC</b> &middot; Page generated: $generated UTC</p>
+Charts use stored data up to: <b>$last_record UTC</b> &middot; Page generated: $generated UTC</p>
+
+<div class="live" id="live" hidden>
+  <h3>Latest funding rate (live from Bybit)</h3>
+  <table>
+    <thead><tr><th>Symbol</th><th>Last settlement (UTC)</th><th>Funding rate</th><th>Annualized</th></tr></thead>
+    <tbody id="live-rows"></tbody>
+  </table>
+  <p class="meta" id="live-note"></p>
+</div>
 
 $charts
 
@@ -107,6 +121,60 @@ $charts
 </ul>
 
 <footer>Analysis tool only, not investment advice. Data from Bybit's public API, provided as is.</footer>
+
+<script>
+// Live box: when the page opens, the visitor's browser asks Bybit for the
+// 2 latest settlements of each symbol. Same formulas as src/metrics.py:
+// interval = time between the 2 settlements, annualized = rate * 8760 / interval_hours.
+// If Bybit cannot be reached (network error, geo-restriction), the box stays hidden.
+const SYMBOLS = $symbols_json;
+const API_URL = "https://api.bybit.com/v5/market/funding/history";
+
+async function latestFunding(symbol) {
+  const response = await fetch(API_URL + "?category=linear&symbol=" + symbol + "&limit=2");
+  const payload = await response.json();
+  if (!response.ok || payload.retCode !== 0) {
+    throw new Error("Bybit error for " + symbol);
+  }
+  // Newest first; we sort ourselves because the API docs do not state the order.
+  const records = payload.result.list
+    .map(item => ({ time: Number(item.fundingRateTimestamp), rate: Number(item.fundingRate) }))
+    .sort((a, b) => b.time - a.time);
+  const intervalHours = (records[0].time - records[1].time) / 3600000;
+  return {
+    symbol: symbol,
+    time: records[0].time,
+    rate: records[0].rate,
+    annualized: records[0].rate * 8760 / intervalHours,
+  };
+}
+
+function utcText(ms) {
+  return new Date(ms).toISOString().slice(0, 16).replace("T", " ");  // "2026-11-16 16:00"
+}
+
+async function showLive() {
+  try {
+    const rows = await Promise.all(SYMBOLS.map(latestFunding));
+    const tbody = document.getElementById("live-rows");
+    for (const row of rows) {
+      const cells = [row.symbol, utcText(row.time),
+                     (row.rate * 100).toFixed(4) + "%", (row.annualized * 100).toFixed(2) + "%"];
+      const tr = tbody.insertRow();
+      for (const text of cells) {
+        tr.insertCell().textContent = text;
+      }
+    }
+    document.getElementById("live-note").textContent =
+      "Fetched by your browser at " + utcText(Date.now()) + " UTC. Reload the page to refresh.";
+    document.getElementById("live").hidden = false;
+  } catch (error) {
+    console.warn("Live funding not available:", error);  // box stays hidden
+  }
+}
+
+showLive();
+</script>
 </body>
 </html>
 """)
@@ -125,6 +193,7 @@ def build_page(metrics_by_symbol):
     last_record = max(df["time"].max() for df in metrics_by_symbol.values())
     return PAGE.substitute(
         symbols=", ".join(metrics_by_symbol),
+        symbols_json=json.dumps(list(metrics_by_symbol)),
         last_record=last_record.strftime("%Y-%m-%d %H:%M"),
         generated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
         charts="\n".join(charts_html),

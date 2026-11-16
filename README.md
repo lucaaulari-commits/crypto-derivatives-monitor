@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/lucaaulari-commits/crypto-derivatives-monitor/actions/workflows/tests.yml/badge.svg)](https://github.com/lucaaulari-commits/crypto-derivatives-monitor/actions/workflows/tests.yml)
 
-A static web page with the full funding rate history of Bybit USDT perpetuals **BTCUSDT** and **ETHUSDT**: funding per settlement, annualized funding (7-day and 30-day moving averages) and cumulative funding. The date of the latest record is shown at the top of the page.
+A static web page with the full funding rate history of Bybit USDT perpetuals **BTCUSDT** and **ETHUSDT**: funding per settlement, annualized funding (7-day and 30-day moving averages) and cumulative funding. The date of the latest stored record is shown at the top of the page; above the charts, a small box shows the latest funding rate fetched live from Bybit by the visitor's browser.
 
 **Live demo:** https://lucaaulari-commits.github.io/crypto-derivatives-monitor/
 
@@ -49,7 +49,8 @@ All rates are decimals in the code (0.0001 = 0.01%). Positive funding: longs pay
 - Data is used as returned by Bybit's API and not cross-checked with other sources. History starts 2020-03-25 (BTCUSDT) and 2020-10-21 (ETHUSDT).
 - The interval is inferred from consecutive records: if a record were missing, the interval for that point would look doubled and its annualized rate halved.
 - Annualized and cumulative figures ignore compounding, price changes, fees and the position's actual notional at each settlement.
-- Updates are not automatic (see above): the page can be behind the live market; check "Data up to" at the top of the page.
+- Charts are not updated automatically (see above) and can be behind the live market; check the "stored data up to" date at the top of the page.
+- The live box calls Bybit from the visitor's browser, so it is hidden where Bybit is not reachable (e.g. geo-restricted countries). Its two formulas (interval, annualized) are repeated in JavaScript and not covered by the pytest tests.
 - The page loads plotly.js from its CDN.
 
 ## Disclaimer
