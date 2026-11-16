@@ -1,4 +1,5 @@
-"""Download new funding records from Bybit and save them to data/funding_<SYMBOL>.csv.
+"""Download new funding records from Bybit, save them to data/funding_<SYMBOL>.csv
+and rebuild the web page docs/index.html.
 
 First run: downloads the full history.
 Later runs: downloads only records newer than the last one already saved.
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src import build_site
 from src.bybit_client import fetch_funding_history
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT"]
@@ -62,6 +64,7 @@ def main():
     for symbol in SYMBOLS:
         added = update_symbol(symbol)
         print(f"{symbol}: {added} new records -> {csv_path(symbol).name}")
+    build_site.main()
 
 
 if __name__ == "__main__":
